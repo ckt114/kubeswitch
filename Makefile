@@ -23,6 +23,9 @@ install:
 	@chmod 755 $(KS_BINARY)
 	@echo done
 
+clean:
+	@rm -rf bin/
+
 copy-completion:
 	@cp -f completion/kubeswitch.bash $(HOME)/.kubeswitch
 

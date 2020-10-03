@@ -252,22 +252,6 @@ func (k *KubeSwitch) IsValidNamespace(ns string) bool {
 	return false
 }
 
-// writeConfig writes the unmarshaled config to disk.
-func (k *KubeSwitch) writeConfig(path string) error {
-	// Convert config object into JSON for writing to file.
-	cfgFile, err := json.Marshal(k.config)
-	if err != nil {
-		return err
-	}
-
-	// Write session config file.
-	if err := ioutil.WriteFile(path, cfgFile, 0644); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // IsActive returns true if inside kubeswitch session.
 // It uses env var KUBESWITCH_ACTIVE=TRUE to determine if in kubeswitch session.
 func (k *KubeSwitch) IsActive() bool {
@@ -291,6 +275,22 @@ func Purge(days int) {
 			}
 		}
 	}
+}
+
+// writeConfig writes the unmarshaled config to disk.
+func (k *KubeSwitch) writeConfig(path string) error {
+	// Convert config object into JSON for writing to file.
+	cfgFile, err := json.Marshal(k.config)
+	if err != nil {
+		return err
+	}
+
+	// Write session config file.
+	if err := ioutil.WriteFile(path, cfgFile, 0644); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func init() {
