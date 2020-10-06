@@ -82,12 +82,6 @@ func init() {
 }
 
 func selectOption(kind string, data []string) (string, error) {
-	// Set select size to length of data if less than `pSize` flag.
-	pSize := len(data)
-	if pSize > pSize {
-		pSize = pSize
-	}
-
 	// Function used for filtering result set.
 	searcher := func(input string, index int) bool {
 		name := data[index]
