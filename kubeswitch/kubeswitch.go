@@ -286,7 +286,7 @@ func (k *KubeSwitch) writeConfig(path string) error {
 	}
 
 	// Write session config file.
-	if err := ioutil.WriteFile(path, cfgFile, 0644); err != nil {
+	if err := ioutil.WriteFile(path, cfgFile, 0600); err != nil {
 		return err
 	}
 
@@ -296,7 +296,7 @@ func (k *KubeSwitch) writeConfig(path string) error {
 func init() {
 	// Create temporary session folder on startup if not exists.
 	if _, err := os.Stat(sessionDir()); err != nil {
-		if err := os.MkdirAll(sessionDir(), 0755); err != nil {
+		if err := os.MkdirAll(sessionDir(), 0700); err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
