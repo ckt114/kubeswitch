@@ -49,18 +49,6 @@ func TestListContexts(t *testing.T) {
 	}
 }
 
-func TestGetContext(t *testing.T) {
-	// Testing with valid context.
-	if i, _, _ := ks.GetContext("default"); i < 0 {
-		t.Errorf("Expecting returned index >= 0, got %v", i)
-	}
-
-	// Testing with invalid context.
-	if i, _, _ := ks.GetContext("invalid"); i >= 0 {
-		t.Errorf("Expecting returned index < 0, got %v", i)
-	}
-}
-
 func TestIsValidContext(t *testing.T) {
 	// Testing with valid context.
 	if valid := ks.IsValidContext("default"); !valid {

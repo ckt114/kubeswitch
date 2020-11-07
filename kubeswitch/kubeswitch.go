@@ -17,7 +17,6 @@ package kubeswitch
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -26,13 +25,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ghodss/yaml"
 	homedir "github.com/mitchellh/go-homedir"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-	api "k8s.io/client-go/tools/clientcmd/api/v1"
+	api "k8s.io/client-go/tools/clientcmd/api"
 )
 
 const (
@@ -91,23 +89,7 @@ func NewKubeSwitch(cfg string) (*KubeSwitch, error) {
 	}
 
 	var ks KubeSwitch
-
-	// Load config into memory and throw error if unsuccessful.
-	buf, err := ioutil.ReadFile(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("unable to load %s\n%s", cfg, err)
-	}
-
-	// Convert buffer into JSON format for unmarshaling.
-	cfgJson, err := yaml.YAMLToJSON(buf)
-	if err != nil {
-		return nil, err
-	}
-
-	// Unmarshal config JSON into api.Config format.
-	if err := json.Unmarshal(cfgJson, &ks.config); err != nil {
-		return nil, err
-	}
+	ks.config = clientcmd.GetConfigFromFileOrDie(cfg)
 
 	return &ks, nil
 }
@@ -116,8 +98,8 @@ func NewKubeSwitch(cfg string) (*KubeSwitch, error) {
 func (k *KubeSwitch) ListContexts() *[]string {
 	var ctxs []string
 
-	for _, c := range k.config.Contexts {
-		ctxs = append(ctxs, c.Name)
+	for ctx := range k.config.Contexts {
+		ctxs = append(ctxs, ctx)
 	}
 
 	sort.Strings(ctxs)
@@ -163,16 +145,6 @@ func (k *KubeSwitch) SetContext(ctx string) error {
 	return nil
 }
 
-// GetContext returns requested context object from config and its slice's index.
-func (k *KubeSwitch) GetContext(ctx string) (int, *api.Context, error) {
-	for i, c := range k.config.Contexts {
-		if c.Name == ctx {
-			return i, &c.Context, nil
-		}
-	}
-	return -1, nil, fmt.Errorf(fmt.Sprintf("context `%s` not found", ctx))
-}
-
 // IsValidContext return true if context is one of the contexts.
 func (k *KubeSwitch) IsValidContext(ctx string) bool {
 	for _, c := range *k.ListContexts() {
@@ -185,20 +157,26 @@ func (k *KubeSwitch) IsValidContext(ctx string) bool {
 
 // LoadNamespaces loads list of namespaces for current context live from Kubernetes.
 func (k *KubeSwitch) LoadNamespaces() error {
-	// Create rest config from kube config file.
-	cfg, err := clientcmd.BuildConfigFromFlags("", os.Getenv(configEVar))
+	// Convert config into []bytes.
+	cfgBytes, err := clientcmd.Write(*k.config)
 	if err != nil {
 		return err
 	}
 
-	// Create rest client from rest config.
-	kApi, err := kubernetes.NewForConfig(cfg)
+	// Create REST config from config []bytes.
+	restCfg, err := clientcmd.RESTConfigFromKubeConfig(cfgBytes)
+	if err != nil {
+		return err
+	}
+
+	// Create kube REST client from REST config.
+	kube, err := kubernetes.NewForConfig(restCfg)
 	if err != nil {
 		return err
 	}
 
 	// Fetch list of namespaces from Kubernetes.
-	k.namespaces, err = kApi.CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{})
+	k.namespaces, err = kube.CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
@@ -225,14 +203,12 @@ func (k *KubeSwitch) SetNamespace(ns string) error {
 		return fmt.Errorf("invalid namespace, %s", ns)
 	}
 
-	// Get the current context so that namespace can be set on it.
-	idx, _, err := k.GetContext(k.config.CurrentContext)
-	if err != nil {
-		return err
+	// Find the current context and set its default namespace.
+	for name, ctx := range k.config.Contexts {
+		if name == k.config.CurrentContext {
+			ctx.Namespace = ns
+		}
 	}
-
-	// Set context's namespace to provided namespace
-	k.config.Contexts[idx].Context.Namespace = ns
 
 	// Write updated config with selected namespace.
 	if err := k.writeConfig(os.Getenv(configEVar)); err != nil {
@@ -279,14 +255,8 @@ func Purge(days int) {
 
 // writeConfig writes the unmarshaled config to disk.
 func (k *KubeSwitch) writeConfig(path string) error {
-	// Convert config object into JSON for writing to file.
-	cfgFile, err := json.Marshal(k.config)
-	if err != nil {
-		return err
-	}
-
 	// Write session config file.
-	if err := ioutil.WriteFile(path, cfgFile, 0600); err != nil {
+	if err := clientcmd.WriteToFile(*k.config, path); err != nil {
 		return err
 	}
 
