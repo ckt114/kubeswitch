@@ -34,13 +34,13 @@ import (
 )
 
 const (
-	// activeEVar is the env var that will be used
+	// EnvVarActive is the env var that will be used
 	// to determine if shell is started by kubeswitch.
-	activeEVar = "KUBESWITCH_ACTIVE"
+	EnvVarActive = "KUBESWITCH_ACTIVE"
 
-	// configEVar is the env var that points to a
+	// EnvVarConfig is the env var that points to a
 	// session's kube config.
-	configEVar = "KUBECONFIG"
+	EnvVarConfig = "KUBECONFIG"
 )
 
 var (
@@ -58,20 +58,10 @@ var (
 	sessionDir = func() string {
 		return kubeDir() + "/tmp"
 	}
-
-	// defaultConfig returns value from KUBECONFIG env var
-	// if defined; otherwise use default config path.
-	defaultConfig = func() string {
-		cfg := os.Getenv(configEVar)
-		if cfg == "" {
-			cfg = kubeDir() + "/config"
-		}
-		return cfg
-	}
 )
 
-// KubeSwitch holds loaded kube config and loaded namespaces.
-type KubeSwitch struct {
+// Kubeswitch holds loaded kube config and loaded namespaces.
+type Kubeswitch struct {
 	// config contains the content of loaded config
 	config *api.Config
 
@@ -80,22 +70,26 @@ type KubeSwitch struct {
 	namespaces *corev1.NamespaceList
 }
 
-// NewKubeSwitch returns an instance of KubeSwitch after loading the config
+// New returns an instance of Kubeswitch after loading the config
 // file from passed in path, KUBECONFIG env var, or default location.
-func NewKubeSwitch(cfg string) (*KubeSwitch, error) {
-	// Use config path if passed in. Otherwise use default location.
-	if cfg == "" {
-		cfg = defaultConfig()
+func New() (*Kubeswitch, error) {
+	// Load config files.
+	po := clientcmd.NewDefaultPathOptions()
+	config, err := po.GetStartingConfig()
+	if err != nil {
+		return nil, err
 	}
 
-	var ks KubeSwitch
-	ks.config = clientcmd.GetConfigFromFileOrDie(cfg)
+	// Flatten config files into single file.
+	if err := api.FlattenConfig(config); err != nil {
+		return nil, err
+	}
 
-	return &ks, nil
+	return &Kubeswitch{config: config}, nil
 }
 
 // ListContexts return context names in loaded config.
-func (k *KubeSwitch) ListContexts() *[]string {
+func (k *Kubeswitch) ListContexts() *[]string {
 	var ctxs []string
 
 	for ctx := range k.config.Contexts {
@@ -107,7 +101,7 @@ func (k *KubeSwitch) ListContexts() *[]string {
 }
 
 // SetContext set context as current context.
-func (k *KubeSwitch) SetContext(ctx string) error {
+func (k *Kubeswitch) SetContext(ctx string) error {
 	// Error out if context is not valid.
 	if !k.IsValidContext(ctx) {
 		return fmt.Errorf("invalid context, %s", ctx)
@@ -116,37 +110,48 @@ func (k *KubeSwitch) SetContext(ctx string) error {
 	// Set current context to chosen context.
 	k.config.CurrentContext = ctx
 
-	// If in an active kubeswitch session, then just write the config
-	// back into KUBECONFIG path b/c that path already is the session's kube config path.
-	if k.IsActive() {
-		if err := k.writeConfig(os.Getenv(configEVar)); err != nil {
+	// Create/update session config.
+	if err := k.setupSession(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// setupSession creates a Kubeswitch session by merging all the kubeconfigs and
+// write it to a temporary file and set KUBECONFIG to that file's path if not in
+// a Kubeswitch sessions. Otherwise, just write the changes to the path defined in
+// KUBECONFIG env var.
+func (k *Kubeswitch) setupSession() error {
+	// Just write the config to KUBECONFIG if in Kubeswitch session.
+	if IsActive() {
+		if err := k.writeConfig(os.Getenv(EnvVarConfig)); err != nil {
 			return err
 		}
 	} else {
-		// Since we're not in a kubeswitch session, construct a path to the new
-		// temp config file and write a copy of the config with updated
-		// chosen context to it.
+		// Construct temporary timestamped kubeconfig session file.
 		now := time.Now()
 		kubePath := fmt.Sprintf("%s/config_%d", sessionDir(), now.UnixNano())
 
-		// Write updated config with selected context to temp path for new session.
+		// Write config to temp path for new session.
 		if err := k.writeConfig(kubePath); err != nil {
 			return err
 		}
 
 		// Set env vars that will be visible when running new shell below.
-		os.Setenv(activeEVar, "TRUE")
-		os.Setenv(configEVar, kubePath)
+		os.Setenv(EnvVarActive, "TRUE")
+		os.Setenv(EnvVarConfig, kubePath)
 
 		// Run a shell with new config path set as env var above.
 		syscall.Exec(os.Getenv("SHELL"), []string{os.Getenv("SHELL")}, syscall.Environ())
 	}
 
 	return nil
+
 }
 
 // IsValidContext return true if context is one of the contexts.
-func (k *KubeSwitch) IsValidContext(ctx string) bool {
+func (k *Kubeswitch) IsValidContext(ctx string) bool {
 	for _, c := range *k.ListContexts() {
 		if ctx == c {
 			return true
@@ -156,7 +161,7 @@ func (k *KubeSwitch) IsValidContext(ctx string) bool {
 }
 
 // LoadNamespaces loads list of namespaces for current context live from Kubernetes.
-func (k *KubeSwitch) LoadNamespaces() error {
+func (k *Kubeswitch) LoadNamespaces() error {
 	// Convert config into []bytes.
 	cfgBytes, err := clientcmd.Write(*k.config)
 	if err != nil {
@@ -185,7 +190,7 @@ func (k *KubeSwitch) LoadNamespaces() error {
 }
 
 // ListNamespaces return namespaces live from Kubernetes.
-func (k *KubeSwitch) ListNamespaces() *[]string {
+func (k *Kubeswitch) ListNamespaces() *[]string {
 	var nss []string
 
 	for _, n := range k.namespaces.Items {
@@ -197,7 +202,7 @@ func (k *KubeSwitch) ListNamespaces() *[]string {
 }
 
 // SetNamespace sets default namespace for current context.
-func (k *KubeSwitch) SetNamespace(ns string) error {
+func (k *Kubeswitch) SetNamespace(ns string) error {
 	// Error out if namespace is not valid.
 	if !k.IsValidNamespace(ns) {
 		return fmt.Errorf("invalid namespace, %s", ns)
@@ -210,8 +215,8 @@ func (k *KubeSwitch) SetNamespace(ns string) error {
 		}
 	}
 
-	// Write updated config with selected namespace.
-	if err := k.writeConfig(os.Getenv(configEVar)); err != nil {
+	// Create/update session config.
+	if err := k.setupSession(); err != nil {
 		return err
 	}
 
@@ -219,7 +224,7 @@ func (k *KubeSwitch) SetNamespace(ns string) error {
 }
 
 // IsValidNamespace return true if namespace is one of the namespaces.
-func (k *KubeSwitch) IsValidNamespace(ns string) bool {
+func (k *Kubeswitch) IsValidNamespace(ns string) bool {
 	for _, n := range k.namespaces.Items {
 		if n.Name == ns {
 			return true
@@ -229,9 +234,9 @@ func (k *KubeSwitch) IsValidNamespace(ns string) bool {
 }
 
 // IsActive returns true if inside kubeswitch session.
-// It uses env var KUBESWITCH_ACTIVE=TRUE to determine if in kubeswitch session.
-func (k *KubeSwitch) IsActive() bool {
-	if active := strings.ToUpper(os.Getenv(activeEVar)); active == "TRUE" {
+// It uses EnvVarActive value to determine if in kubeswitch session.
+func IsActive() bool {
+	if a := strings.ToUpper(os.Getenv(EnvVarActive)); a == "TRUE" {
 		return true
 	}
 
@@ -254,7 +259,7 @@ func Purge(days int) {
 }
 
 // writeConfig writes the unmarshaled config to disk.
-func (k *KubeSwitch) writeConfig(path string) error {
+func (k *Kubeswitch) writeConfig(path string) error {
 	// Write session config file.
 	if err := clientcmd.WriteToFile(*k.config, path); err != nil {
 		return err

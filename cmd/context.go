@@ -17,12 +17,8 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/trankchung/kubeswitch/kubeswitch"
-)
-
-var (
-	// config is the path to the config passed in from command line.
-	config string
 )
 
 // contextCmd represents the context command that presents a list
@@ -36,8 +32,8 @@ var contextCmd = &cobra.Command{
 	Args:    cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 
-		// Create an instance of KubeSwitch with passed in config if set.
-		ks, err := kubeswitch.NewKubeSwitch(config)
+		// Create an instance of Kubeswitch with passed in config if set.
+		ks, err := kubeswitch.New()
 		if err != nil {
 			fail(err)
 		}
@@ -48,7 +44,7 @@ var contextCmd = &cobra.Command{
 			ctxs := *ks.ListContexts()
 
 			// List context one per line without prompt. Use for shell completion.
-			if nPrompt {
+			if viper.GetBool("noPrompt") {
 				list(&ctxs)
 			} else {
 				// Prompt user to select context from a list.
@@ -73,7 +69,4 @@ var contextCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(contextCmd)
-
-	// Local flags only available to this command.
-	contextCmd.Flags().StringVarP(&config, "config", "c", "", "kube config to get contexts")
 }

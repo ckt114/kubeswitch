@@ -19,12 +19,8 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/trankchung/kubeswitch/kubeswitch"
-)
-
-var (
-	// days is number of days to retain copied session files.
-	days int
 )
 
 // purgeCmd represents the purge command that purges temporary session files.
@@ -32,6 +28,7 @@ var purgeCmd = &cobra.Command{
 	Use:   "purge",
 	Short: "Purge temporary session files",
 	Run: func(cmd *cobra.Command, args []string) {
+		days := viper.GetInt("purge.days")
 		fmt.Printf("purging temporary session files older than %d day(s) ...\n", days)
 		kubeswitch.Purge(days)
 		fmt.Println("done")
@@ -42,5 +39,7 @@ func init() {
 	rootCmd.AddCommand(purgeCmd)
 
 	// Local flags only available to this command.
-	purgeCmd.Flags().IntVarP(&days, "days", "d", 2, "days to retain")
+	purgeCmd.Flags().IntP("days", "d", 2, "days to rentain (KUBESWITCH_PURGE_DAYS)")
+	viper.BindPFlag("purge.days", purgeCmd.Flags().Lookup("days"))
+	viper.BindEnv("purge.days", "KUBESWITCH_PURGE_DAYS")
 }

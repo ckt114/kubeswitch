@@ -17,6 +17,7 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/trankchung/kubeswitch/kubeswitch"
 )
 
@@ -31,15 +32,10 @@ var namespaceCmd = &cobra.Command{
 	Args:    cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 
-		// Create an instance of KubeSwitch with config from default location.
-		ks, err := kubeswitch.NewKubeSwitch("")
+		// Create an instance of Kubeswitch with config from default location.
+		ks, err := kubeswitch.New()
 		if err != nil {
 			fail(err)
-		}
-
-		// Quit if not running inside of kubeswitch session.
-		if !ks.IsActive() {
-			fail("not in kubeswitch session, activate kubeswitch using `context` command first")
 		}
 
 		// Load namespaces for current context live from Kubernetes.
@@ -53,7 +49,7 @@ var namespaceCmd = &cobra.Command{
 			nss := *ks.ListNamespaces()
 
 			// List namespaces one per line without prompt. Use for shell completion.
-			if nPrompt {
+			if viper.GetBool("noPrompt") {
 				list(&nss)
 			} else {
 				// Prompt user to select namespace from a list.

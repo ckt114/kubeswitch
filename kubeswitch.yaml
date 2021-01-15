@@ -1,0 +1,25 @@
+# Path to Kubernetes config file. Defaults to KUBECONFIG if not defined.
+# kubeConfig: $HOME/.kube/config
+
+# List of directories to search for Kubernets configs matching `configGlobs`.
+configDirs:
+- $HOME/.kube
+
+# For each configDirs item, look for the following glob patterns as Kubernetes configs.
+configGlobs:
+- config
+- "*.yaml"
+- "*.json"
+
+# Default size of the selection prompt.
+promptSize: 10
+
+# Do not prompt user to select context/namespace.
+# Just output contexts/namespaces on per line.
+# Useful for auto-completion.
+# noPrompt: true
+
+# Number of days to retain Kubeswitch session files.
+purge:
+  days: 2
+

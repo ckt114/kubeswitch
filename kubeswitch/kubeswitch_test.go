@@ -24,16 +24,18 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-var ks *KubeSwitch
+var ks *Kubeswitch
 
-func TestNewKubeSwitch(t *testing.T) {
+func TestNew(t *testing.T) {
 	// Test using JSON config.
-	if _, err := NewKubeSwitch("../fixtures/config.json"); err != nil {
+	os.Setenv(EnvVarConfig, "../fixtures/config.json")
+	if _, err := New(); err != nil {
 		t.Errorf("Expected error to be %v, got %v", nil, err)
 	}
 
 	// Test using YAML config.
-	if _, err := NewKubeSwitch("../fixtures/config.yaml"); err != nil {
+	os.Setenv(EnvVarConfig, "../fixtures/config.yaml")
+	if _, err := New(); err != nil {
 		t.Errorf("Expected error to be %v, got %v", nil, err)
 	}
 }
@@ -91,31 +93,32 @@ func TestIsValidNamespace(t *testing.T) {
 
 func TestIsActive(t *testing.T) {
 	// Test with active session.
-	os.Setenv(activeEVar, "TRUE")
-	if active := ks.IsActive(); !active {
+	os.Setenv(EnvVarActive, "TRUE")
+	if active := IsActive(); !active {
 		t.Errorf("Expected active to be %v, got %v", true, active)
 	}
 
 	// Test with inactive session with env var set to nothing.
-	os.Setenv(activeEVar, "")
-	if active := ks.IsActive(); active {
+	os.Setenv(EnvVarActive, "")
+	if active := IsActive(); active {
 		t.Errorf("Expected active to be %v, got %v", false, active)
 	}
 
 	// Test with inactive session with no env var set.
-	os.Unsetenv(activeEVar)
-	if active := ks.IsActive(); active {
+	os.Unsetenv(EnvVarActive)
+	if active := IsActive(); active {
 		t.Errorf("Expected active to be %v, got %v", false, active)
 	}
 
 }
 
 func init() {
-	ks, _ = NewKubeSwitch("../fixtures/config.yaml")
+	os.Setenv(EnvVarConfig, "../fixtures/config.yaml")
+	ks, _ = New()
 }
 
 // Load sample namespaces for testing.
-func loadNamespaces(k *KubeSwitch, size int) {
+func loadNamespaces(k *Kubeswitch, size int) {
 	var nss []corev1.Namespace
 	for i := 0; i < size; i++ {
 		ns := corev1.Namespace{}

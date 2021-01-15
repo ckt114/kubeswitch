@@ -20,23 +20,19 @@ import (
 	"os"
 	"strings"
 
+	"path/filepath"
+
 	"github.com/manifoldco/promptui"
+	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"github.com/trankchung/kubeswitch/kubeswitch"
 )
 
 // Version will automatically be set to latest git tagged version.
 var Version = "v0.0.0"
 
 var (
-	// pVersion is to print version number.
-	pVersion bool
-
-	// nPrompt disables select prompt for commands results.
-	nPrompt bool
-
-	// pSize is the select prompt size.
-	pSize int
-
 	// list prints result one per line.
 	list = func(data *[]string) {
 		fmt.Println(strings.Join(*data, "\n"))
@@ -54,8 +50,12 @@ var rootCmd = &cobra.Command{
 	Use:   "kubeswitch",
 	Short: "Switch Kubernetes context or namespace",
 	Run: func(cmd *cobra.Command, args []string) {
-		if pVersion {
+		if viper.GetBool("version") {
 			fmt.Println(Version)
+		} else if viper.GetBool("debug") {
+			fmt.Println("KUBECONFIG:", os.Getenv(kubeswitch.EnvVarConfig))
+			fmt.Println("Kubeswitch config:", viper.ConfigFileUsed())
+			fmt.Printf("Config Values: %+v\n", viper.AllSettings())
 		} else {
 			cmd.Help()
 		}
@@ -71,14 +71,118 @@ func Execute() {
 }
 
 func init() {
-	cobra.OnInitialize()
+	cobra.OnInitialize(initConfig)
 
 	// Persistent flag that are available for all commands.
-	rootCmd.PersistentFlags().BoolVarP(&nPrompt, "no-prompt", "P", false, "disable select prompt")
-	rootCmd.PersistentFlags().IntVarP(&pSize, "prompt-size", "p", 10, "select prompt size")
+	rootCmd.PersistentFlags().StringP("config", "c", "$HOME/.kubeswitch.yaml", "kubeswitch config (KUBESWITCH_CONFIG)")
+	rootCmd.PersistentFlags().BoolP("no-config", "C", false, "don't use kubeswitch config (KUBESWITCH_NOCONFIG)")
+	rootCmd.PersistentFlags().StringP("kubeconfig", "k", "", "kubernetes config to read (KUBESWITCH_KUBECONFIG)")
+	rootCmd.PersistentFlags().IntP("prompt-size", "p", 10, "selection prompt size (KUBESWITCH_PROMPTSIZE)")
+	rootCmd.PersistentFlags().BoolP("no-prompt", "P", false, "disable selection prompt (KUBESWITCH_NOPROMPT)")
 
 	// Local flags only available to this command.
-	rootCmd.Flags().BoolVarP(&pVersion, "version", "v", false, "print version")
+	rootCmd.Flags().BoolP("version", "v", false, "print version")
+	rootCmd.Flags().BoolP("debug", "d", false, "print debug info")
+}
+
+// initConfig reads in config file and ENV variables if set.
+func initConfig() {
+	// Only read Kubeswitch config file if `noConfig` is false.
+	if !viper.GetBool("noConfig") {
+		cfgFile := viper.GetString("config")
+		if cfgFile != "" {
+			// Use config file from the flag.
+			viper.SetConfigFile(cfgFile)
+		} else {
+			// Find home directory.
+			home, err := homedir.Dir()
+			if err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+			// Setup configuration path and file.
+			viper.AddConfigPath(home)
+			viper.SetConfigName(".kubeswitch")
+			viper.SetConfigType("yaml")
+		}
+
+		// Read Kubeswitch config if file exists.
+		if err := viper.ReadInConfig(); err != nil {
+			if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+				fmt.Println(viper.ConfigFileUsed(), ":", err)
+				os.Exit(1)
+			}
+		}
+	}
+
+	// Configure environment variable reading.
+	viper.SetEnvPrefix("KUBESWITCH")
+	viper.AutomaticEnv()
+
+	viper.BindPFlag("config", rootCmd.Flags().Lookup("config"))
+	viper.BindPFlag("noConfig", rootCmd.Flags().Lookup("no-config"))
+	viper.BindPFlag("kubeConfig", rootCmd.Flags().Lookup("kubeconfig"))
+	viper.BindPFlag("promptSize", rootCmd.Flags().Lookup("prompt-size"))
+	viper.BindPFlag("noPrompt", rootCmd.Flags().Lookup("no-prompt"))
+
+	viper.BindPFlag("version", rootCmd.Flags().Lookup("version"))
+	viper.BindPFlag("debug", rootCmd.Flags().Lookup("debug"))
+
+	// Setup KUBECONFIG from flags, env vars, and config file.
+	if err := setupKubeEnvVar(); err != nil {
+		fail(err)
+	}
+}
+
+// setupKubeEnvVar finds all the Kubernetes configs defined in Kubeswitch config file
+// and construct into colon-separated list and set KUBECONFIG env var to that list.
+// This is so that clientcmd can read multiple config at once.
+func setupKubeEnvVar() error {
+	var configs []string
+
+	// Add kubeConfig into list of configs.
+	cfg, err := homedir.Expand(os.ExpandEnv(viper.GetString("kubeConfig")))
+	if err != nil {
+		return err
+	}
+	configs = append(configs, cfg)
+
+	// Loop through each configDirs and configGlobs and add matching files to `configs`.
+	if !kubeswitch.IsActive() {
+		for _, dir := range viper.GetStringSlice("configDirs") {
+			for _, glob := range viper.GetStringSlice("configGlobs") {
+				expDir, _ := homedir.Expand(os.ExpandEnv(dir))
+				files, _ := filepath.Glob(expDir + "/" + glob)
+				configs = append(configs, files...)
+			}
+		}
+
+		// Remove duplicate config paths from `configs`.
+		configs = removeDuplicates(configs)
+
+		// Set KUBECONFIG to list of configs separated by colon.
+		if err := os.Setenv(kubeswitch.EnvVarConfig, strings.Join(configs, ":")); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func removeDuplicates(s []string) []string {
+	items := map[string]bool{}
+
+	// Create a map of all unique items.
+	for v := range s {
+		items[s[v]] = true
+	}
+
+	// Place all keys from the map into a slice.
+	result := []string{}
+	for key := range items {
+		result = append(result, key)
+	}
+	return result
 }
 
 func selectOption(kind string, data []string) (string, error) {
@@ -92,7 +196,7 @@ func selectOption(kind string, data []string) (string, error) {
 	prompt := promptui.Select{
 		Label:             fmt.Sprintf("Select %s. / to search", kind),
 		Items:             data,
-		Size:              pSize,
+		Size:              viper.GetInt("promptSize"),
 		Searcher:          searcher,
 		StartInSearchMode: false,
 		HideHelp:          true,

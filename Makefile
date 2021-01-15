@@ -6,8 +6,8 @@ VERSION_FLAG := -X `go list ./cmd`.Version=$(VERSION)
 FISH_DIR = ~/.config/fish/completions
 KS_BINARY = /usr/local/bin/kubeswitch
 
-ZSH_EXISTS := $(shell test -f ~/.zshrc && grep kubeswitch ~/.zshrc)
-BASH_EXISTS := $(shell test -f ~/.bashrc && grep kubeswitch ~/.bashrc)
+ZSH_EXISTS := $(shell test -f ~/.zshrc && grep kubeswitch.zsh ~/.zshrc)
+BASH_EXISTS := $(shell test -f ~/.bashrc && grep kubeswitch.bash ~/.bashrc)
 
 build:
 	@echo -n Building kubeswitch...
@@ -26,20 +26,22 @@ install:
 clean:
 	@rm -rf bin/
 
-copy-completion:
-	@cp -f completion/kubeswitch.bash $(HOME)/.kubeswitch
+install-config:
+	@cp -f kubeswitch.yaml $(HOME)/.kubeswitch.yaml
 
-bash-completion:  copy-completion
+bash-completion:
 	@echo -n Installing Bash completion...
 ifeq ($(BASH_EXISTS), )
-	@echo '\nsource $$HOME/.kubeswitch' >> $(HOME)/.bashrc
+	@cp -f completion/kubeswitch $(HOME)/.kubeswitch.bash
+	@echo "source $$HOME/.kubeswitch.bash" >> $(HOME)/.bashrc
 endif
 	@echo done
 
-zsh-completion: copy-completion
+zsh-completion:
 	@echo -n Installing ZSH completion...
 ifeq ($(ZSH_EXISTS), )
-	@echo '\nsource $$HOME/.kubeswitch' >> $(HOME)/.zshrc
+	@cp -f completion/kubeswitch $(HOME)/.kubeswitch.zsh
+	@echo "source $$HOME/.kubeswitch.zsh" >> $(HOME)/.zshrc
 endif
 	@echo done
 
