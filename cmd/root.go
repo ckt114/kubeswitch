@@ -147,14 +147,12 @@ func setupKubeEnvVar() error {
 	}
 	configs = append(configs, cfg)
 
-	// Loop through each configDirs and configGlobs and add matching files to `configs`.
 	if !kubeswitch.IsActive() {
-		for _, dir := range viper.GetStringSlice("configDirs") {
-			for _, glob := range viper.GetStringSlice("configGlobs") {
-				expDir, _ := homedir.Expand(os.ExpandEnv(dir))
-				files, _ := filepath.Glob(expDir + "/" + glob)
-				configs = append(configs, files...)
-			}
+		// Get list of files matching patterns in `configs` key.
+		for _, path := range viper.GetStringSlice("configs") {
+			absPath, _ := homedir.Expand(os.ExpandEnv(path))
+			files, _ := filepath.Glob(absPath)
+			configs = append(configs, files...)
 		}
 
 		// Remove duplicate config paths from `configs`.

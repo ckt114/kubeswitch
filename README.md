@@ -79,10 +79,9 @@ argocd  default  jenkins  kube-node-lease  kube-public  kube-system
 ## Configuration
 Kubeswitch default config file is `$HOME/.kubeswitch.yaml`.
 Use `-c` or `--config` flags or `KUBESWITCH_CONFIG` environment variable to
-override default config file. The following keys are used by Kubeswitch.
+override default config file. The following keys are used by Kubeswitch
 - `kubeConfig`  - Kubernetes config file to merge into Kubeswitch session file `KUBESWITCH_KUBECONFIG`
-- `configDirs`  - Array list of directories to search for Kubernetes config files to merge into Kubeswitch session file
-- `configGlobs` - Array list of globs to search for Kubernetes config files to merge into Kubeswitch session file
+- `configs`     - Array list of path patterns to search for Kubernetes config files
 - `promptSize`  - Number of items to show for selection prompt`KUBESWITCH_PROMPTSIZE`
 - `noPrompt`    - Don't use selection prompt; print each item per line`KUBESWITCH_NOPROMPT`
 - `purge`

@@ -1,15 +1,10 @@
 # Path to Kubernetes config file. Defaults to KUBECONFIG if not defined.
 # kubeConfig: $HOME/.kube/config
 
-# List of directories to search for Kubernets configs matching `configGlobs`.
-configDirs:
-- $HOME/.kube
-
-# For each configDirs item, look for the following glob patterns as Kubernetes configs.
-configGlobs:
-- config
-- "*.yaml"
-- "*.json"
+# List of path patterns to look for Kubernetes config files.
+configs:
+- $HOME/.kube/config
+- $HOME/.kube/*.yaml
 
 # Default size of the selection prompt.
 promptSize: 10
