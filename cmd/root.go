@@ -87,12 +87,25 @@ func init() {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
+	// Configure environment variable reading.
+	viper.SetEnvPrefix("KUBESWITCH")
+	viper.AutomaticEnv()
+
+	viper.BindPFlag("config", rootCmd.Flags().Lookup("config"))
+	viper.BindPFlag("noConfig", rootCmd.Flags().Lookup("no-config"))
+	viper.BindPFlag("kubeConfig", rootCmd.Flags().Lookup("kubeconfig"))
+	viper.BindPFlag("promptSize", rootCmd.Flags().Lookup("prompt-size"))
+	viper.BindPFlag("noPrompt", rootCmd.Flags().Lookup("no-prompt"))
+
+	viper.BindPFlag("version", rootCmd.Flags().Lookup("version"))
+	viper.BindPFlag("debug", rootCmd.Flags().Lookup("debug"))
+
 	// Only read Kubeswitch config file if `noConfig` is false.
 	if !viper.GetBool("noConfig") {
-		cfgFile := viper.GetString("config")
-		if cfgFile != "" {
+		cfg, _ := homedir.Expand(os.ExpandEnv(viper.GetString("config")))
+		if cfg != "" {
 			// Use config file from the flag.
-			viper.SetConfigFile(cfgFile)
+			viper.SetConfigFile(cfg)
 		} else {
 			// Find home directory.
 			home, err := homedir.Dir()
@@ -107,26 +120,15 @@ func initConfig() {
 		}
 
 		// Read Kubeswitch config if file exists.
-		if err := viper.ReadInConfig(); err != nil {
-			if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-				fmt.Println(viper.ConfigFileUsed(), ":", err)
-				os.Exit(1)
+		if _, err := os.Stat(viper.ConfigFileUsed()); err == nil {
+			if err := viper.ReadInConfig(); err != nil {
+				if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+					fmt.Println(viper.ConfigFileUsed(), ":", err)
+					os.Exit(1)
+				}
 			}
 		}
 	}
-
-	// Configure environment variable reading.
-	viper.SetEnvPrefix("KUBESWITCH")
-	viper.AutomaticEnv()
-
-	viper.BindPFlag("config", rootCmd.Flags().Lookup("config"))
-	viper.BindPFlag("noConfig", rootCmd.Flags().Lookup("no-config"))
-	viper.BindPFlag("kubeConfig", rootCmd.Flags().Lookup("kubeconfig"))
-	viper.BindPFlag("promptSize", rootCmd.Flags().Lookup("prompt-size"))
-	viper.BindPFlag("noPrompt", rootCmd.Flags().Lookup("no-prompt"))
-
-	viper.BindPFlag("version", rootCmd.Flags().Lookup("version"))
-	viper.BindPFlag("debug", rootCmd.Flags().Lookup("debug"))
 
 	// Setup KUBECONFIG from flags, env vars, and config file.
 	if err := setupKubeEnvVar(); err != nil {
@@ -138,16 +140,23 @@ func initConfig() {
 // and construct into colon-separated list and set KUBECONFIG env var to that list.
 // This is so that clientcmd can read multiple config at once.
 func setupKubeEnvVar() error {
-	var configs []string
-
-	// Add kubeConfig into list of configs.
-	cfg, err := homedir.Expand(os.ExpandEnv(viper.GetString("kubeConfig")))
-	if err != nil {
-		return err
-	}
-	configs = append(configs, cfg)
-
 	if !kubeswitch.IsActive() {
+		var configs []string
+
+		// Add kubeConfig into list of configs.
+		cfg, err := homedir.Expand(os.ExpandEnv(viper.GetString("kubeConfig")))
+		if err != nil {
+			return err
+		}
+		configs = append(configs, cfg)
+
+		// Add KUBECONFIG into list of configs if defined.
+		kConfig, err := homedir.Expand(os.ExpandEnv(os.Getenv(kubeswitch.EnvVarConfig)))
+		if err != nil {
+			return err
+		}
+		configs = append(configs, kConfig)
+
 		// Get list of files matching patterns in `configs` key.
 		for _, path := range viper.GetStringSlice("configs") {
 			absPath, _ := homedir.Expand(os.ExpandEnv(path))
