@@ -29,6 +29,10 @@ import (
 	"github.com/trankchung/kubeswitch/kubeswitch"
 )
 
+const (
+	defaultCfg = "$HOME/.kubeswitch.yaml"
+)
+
 // Version will automatically be set to latest git tagged version.
 var Version = "v0.0.0"
 
@@ -74,7 +78,7 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	// Persistent flag that are available for all commands.
-	rootCmd.PersistentFlags().StringP("config", "c", "$HOME/.kubeswitch.yaml", "kubeswitch config (KUBESWITCH_CONFIG)")
+	rootCmd.PersistentFlags().StringP("config", "c", defaultCfg, "kubeswitch config (KUBESWITCH_CONFIG)")
 	rootCmd.PersistentFlags().BoolP("no-config", "C", false, "don't use kubeswitch config (KUBESWITCH_NOCONFIG)")
 	rootCmd.PersistentFlags().StringP("kubeconfig", "k", "", "kubernetes config to read (KUBESWITCH_KUBECONFIG)")
 	rootCmd.PersistentFlags().IntP("prompt-size", "p", 10, "selection prompt size (KUBESWITCH_PROMPTSIZE)")
@@ -103,30 +107,15 @@ func initConfig() {
 	// Only read Kubeswitch config file if `noConfig` is false.
 	if !viper.GetBool("noConfig") {
 		cfg, _ := homedir.Expand(os.ExpandEnv(viper.GetString("config")))
-		if cfg != "" {
-			// Use config file from the flag.
-			viper.SetConfigFile(cfg)
-		} else {
-			// Find home directory.
-			home, err := homedir.Dir()
-			if err != nil {
-				fmt.Println(err)
-				os.Exit(1)
-			}
-			// Setup configuration path and file.
-			viper.AddConfigPath(home)
-			viper.SetConfigName(".kubeswitch")
-			viper.SetConfigType("yaml")
-		}
+		viper.SetConfigFile(cfg)
 
 		// Read Kubeswitch config if file exists.
 		if _, err := os.Stat(viper.ConfigFileUsed()); err == nil {
 			if err := viper.ReadInConfig(); err != nil {
-				if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-					fmt.Println(viper.ConfigFileUsed(), ":", err)
-					os.Exit(1)
-				}
+				fail(fmt.Sprintln(viper.ConfigFileUsed(), ":", err))
 			}
+		} else {
+			fmt.Printf("WARN: Config file \"%s\" not exists\n", viper.ConfigFileUsed())
 		}
 	}
 
