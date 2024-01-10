@@ -9,12 +9,12 @@ Kubernetes context and namespace switching with style. Inspired by [Kubie](https
 
 # Installation
 ## Download
-You can download Kubeswitch from [releases](https://github.com/trankchung/kubeswitch/releases) page.
+You can download Kubeswitch from [releases](https://github.com/ckt114/kubeswitch/releases) page.
 
 ## Build
 You can build Kubeswitch by running the following commands.
 ```shell
-$ git clone https://github.com/trankchung/kubeswitch
+$ git clone https://github.com/ckt114/kubeswitch
 $ cd kubeswitch
 $ make
 $ sudo make install

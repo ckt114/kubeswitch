@@ -1,25 +1,29 @@
 builds:
-- env:
+- binary: kubeswitch
+  env:
   - CGO_ENABLED=0
   goos:
   - linux
   - darwin
   goarch:
   - amd64
-  - arm
   - arm64
-  goarm:
-  - 6
-  - 7
   ldflags:
-  - -s -w -X "github.com/trankchung/kubeswitch/cmd.Version=v{{.Version}}"
-archives:
-- replacements:
-    darwin: Darwin
-    linux: Linux
-    windows: Windows
-    386: i386
-    amd64: x86_64
+  - -s -w -X "github.com/ckt114/kubeswitch/cmd.Version=v{{.Version}}"
+release:
+  prerelease: auto
+universal_binaries:
+  - replace: true
+brews:
+- name: kubeswitch
+  homepage: "https://github.com/ckt114/kubeswitch"
+  repository:
+    owner: ckt114
+    name: homebrew-taps
+    branch: master
+  commit_author:
+    name: ckt114
+    email: chung.k.tran@gmail.com
 checksum:
   name_template: 'checksums.txt'
 snapshot:

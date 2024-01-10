@@ -26,7 +26,7 @@ import (
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/trankchung/kubeswitch/kubeswitch"
+	"github.com/ckt114/kubeswitch/kubeswitch"
 )
 
 const (

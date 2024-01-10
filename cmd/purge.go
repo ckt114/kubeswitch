@@ -20,7 +20,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/trankchung/kubeswitch/kubeswitch"
+	"github.com/ckt114/kubeswitch/kubeswitch"
 )
 
 // purgeCmd represents the purge command that purges temporary session files.
