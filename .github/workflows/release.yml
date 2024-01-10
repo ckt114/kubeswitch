@@ -12,19 +12,12 @@ jobs:
     - name: Setup Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.14
+        go-version: '1.20.6'
     - name: GoReleaser
       uses: goreleaser/goreleaser-action@v2
       with:
-        version: latest
-        args: release --rm-dist
+        version: v1.23.0
+        args: release --clean
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  build:
-    name: Renew documentation
-    runs-on: ubuntu-latest
-    steps:
-    - name: Pull new module version
-      uses: andrewslotin/go-proxy-pull-action@master
+        GITHUB_TOKEN: ${{ secrets.DEFAULT_TOKEN }}
 

@@ -6,20 +6,20 @@ builds:
   - darwin
   goarch:
   - amd64
-  - arm
   - arm64
-  goarm:
-  - 6
-  - 7
   ldflags:
-  - -s -w -X "github.com/trankchung/kubeswitch/cmd.Version=v{{.Version}}"
-archives:
-- replacements:
-    darwin: Darwin
-    linux: Linux
-    windows: Windows
-    386: i386
-    amd64: x86_64
+  - -s -w -X "github.com/ckt114/kubeswitch/cmd.Version=v{{.Version}}"
+brews:
+- homepage: "https://github.com/ckt114/kubeswitch"
+  description: "Kubernetes context and namespace switching with style."
+  license: "Apache-2.0"
+  repository:
+    owner: ckt114
+    name: homebrew-tap
+    branch: master
+  commit_author:
+    name: ckt114
+    email: chung.k.tran@gmail.com
 checksum:
   name_template: 'checksums.txt'
 snapshot:

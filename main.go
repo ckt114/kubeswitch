@@ -15,7 +15,7 @@ limitations under the License.
 */
 package main
 
-import "github.com/trankchung/kubeswitch/cmd"
+import "github.com/ckt114/kubeswitch/cmd"
 
 func main() {
 	cmd.Execute()
