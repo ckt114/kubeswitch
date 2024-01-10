@@ -21,11 +21,3 @@ jobs:
         args: release --clean
       env:
         GITHUB_TOKEN: ${{ secrets.DEFAULT_TOKEN }}
-
-  build:
-    name: Renew documentation
-    runs-on: ubuntu-latest
-    steps:
-    - name: Pull new module version
-      uses: andrewslotin/go-proxy-pull-action@master
-
